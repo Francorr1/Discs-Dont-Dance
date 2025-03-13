@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "dgSpecHash": "Si6O2nWkmoED7ibdldGh2U1SpsCperfnWy0B1dJbzSt3IcdODsQrrMOyY6F2t9mchJRGJb/nTZmg3TPqK9lbBQ==",
+  "success": true,
+  "projectFilePath": "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj",
+  "expectedPackageFiles": [
+    "/home/franco/.nuget/packages/atksharp/3.22.25.74/atksharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/cairosharp/3.22.25.74/cairosharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/gdksharp/3.22.25.74/gdksharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/giosharp/3.22.25.74/giosharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/glibsharp/3.22.25.74/glibsharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/gtksharp/3.22.25.74/gtksharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/libvlcsharp/3.9.2/libvlcsharp.3.9.2.nupkg.sha512",
+    "/home/franco/.nuget/packages/libvlcsharp.gtk/3.9.2/libvlcsharp.gtk.3.9.2.nupkg.sha512",
+    "/home/franco/.nuget/packages/microsoft.netcore.platforms/1.1.0/microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/microsoft.netcore.targets/1.1.0/microsoft.netcore.targets.1.1.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/pangosharp/3.22.25.74/pangosharp.3.22.25.74.nupkg.sha512",
+    "/home/franco/.nuget/packages/runtime.native.system/4.3.0/runtime.native.system.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.globalization/4.3.0/system.globalization.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.io/4.3.0/system.io.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.reflection/4.3.0/system.reflection.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.reflection.extensions/4.3.0/system.reflection.extensions.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.reflection.primitives/4.3.0/system.reflection.primitives.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.resources.resourcemanager/4.3.0/system.resources.resourcemanager.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.runtime/4.3.0/system.runtime.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.runtime.handles/4.3.0/system.runtime.handles.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.runtime.interopservices/4.3.0/system.runtime.interopservices.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.runtime.interopservices.runtimeinformation/4.3.0/system.runtime.interopservices.runtimeinformation.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.text.encoding/4.3.0/system.text.encoding.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.threading/4.3.0/system.threading.4.3.0.nupkg.sha512",
+    "/home/franco/.nuget/packages/system.threading.tasks/4.3.0/system.threading.tasks.4.3.0.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Package 'LibVLCSharp.GTK 3.9.2' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0'. This package may not be fully compatible with your project.",
+      "libraryId": "LibVLCSharp.GTK",
+      "targetGraphs": [
+        "net8.0"
+      ]
+    }
+  ]
+}

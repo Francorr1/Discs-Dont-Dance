@@ -1,0 +1,361 @@
+﻿using System;
+using System.Diagnostics;
+using System.Threading;
+using 
+
+class Program
+{
+    public int vlcProcessId;
+    static void Main()
+    {
+        string device = "/dev/cdrom"; // Change this if needed
+        string lastStatus = "";
+        string lastType = "";
+        Process MPlayerProcess = null;
+
+        Console.WriteLine("Monitoring DVD drive... Press Ctrl+C to stop.");
+
+        while (true)
+        {
+            string currentStatus = RunCommand($"setcd {device} -i").Trim();
+            string currentType = "";
+
+            if (currentStatus != lastStatus || currentType != lastType)
+            {
+                if (currentStatus.Contains("No disc is inserted"))
+                {
+                    Console.WriteLine("\r[INFO] No disc detected.");
+                }
+                else
+                {
+                    if (currentStatus.Contains("tray is open"))
+                    {
+                        Console.WriteLine("\rDrive tray is open.");
+                        if (MPlayerProcess != null)
+                        {
+                            MPlayerProcess.StandardInput.WriteLine("quit");
+                            MPlayerProcess = null;
+                        }
+                    }
+
+                    if (currentStatus.Contains("is not ready") || currentStatus.Contains("No such file"))
+                    {
+                        Console.WriteLine("\rDrive is not ready.");
+                        if (MPlayerProcess != null)
+                        {
+                            MPlayerProcess.StandardInput.WriteLine("quit");
+                            MPlayerProcess = null;
+                        }
+                    }
+
+                    if (currentStatus.Contains("DVD"))
+                    {
+                        Console.WriteLine($"\rDisc detected: DVD Disc.");
+                    }
+                    else if (currentStatus.Contains("audio disc"))
+                    {
+                        Console.WriteLine($"\rDisc detected: Audio CD.");
+                        MPlayerProcess = openMPlayer("cdda://");
+                    }
+                }
+
+                lastStatus = currentStatus;
+                lastType = currentType;
+            }
+
+            Thread.Sleep(1000); // Check every second
+        }
+    }
+
+    static string RunCommand(string command)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "/bin/bash",
+                Arguments = $"-c \"{command}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (Process process = new Process { StartInfo = psi })
+            {
+                process.Start();
+                string result = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
+    }
+
+    static Process openMPlayer(string path)
+    {
+        Process mplayerProcess = new Process();
+        mplayerProcess.StartInfo.FileName = "mplayer";
+        mplayerProcess.StartInfo.Arguments = $"-slave {path}";
+        mplayerProcess.StartInfo.UseShellExecute = false;
+        mplayerProcess.StartInfo.RedirectStandardInput = true;
+        mplayerProcess.StartInfo.RedirectStandardOutput = true;
+        mplayerProcess.Start();
+
+        return mplayerProcess;
+    }
+}
+
+
+
+
+// Saved
+if (currentStatus.Contains("tray is open") || currentStatus.Contains("no disc") || currentStatus.Contains("is not ready"))
+                    {
+                        StopDisc(null, null);
+                    }
+
+
+
+// Last backup
+
+using System;
+using System.Diagnostics;
+using System.Threading;
+using Gtk;
+
+class MediaPlayerApp : Window
+{
+    private Label statusLabel;
+    private Label trackInfoLabel;
+    private Button pauseButton, stopButton, nextButton, prevButton;
+    private Thread monitorThread, trackInfoThread;
+    private volatile bool running = true;
+    private Process mplayerProcess;
+    private volatile bool discInserted = false;
+
+    public MediaPlayerApp() : base("Disc Media Player")
+    {
+        SetDefaultSize(400, 250);
+        SetPosition(WindowPosition.Center);
+
+        VBox vbox = new VBox();
+        statusLabel = new Label("Monitoring drive...");
+        trackInfoLabel = new Label("Track: -- | Time: --:--");
+        vbox.PackStart(statusLabel, true, true, 5);
+        vbox.PackStart(trackInfoLabel, true, true, 5);
+
+        HBox buttonBox = new HBox();
+        pauseButton = new Button("Pause");
+        stopButton = new Button("Stop");
+        nextButton = new Button("Next Track");
+        prevButton = new Button("Previous Track");
+
+        pauseButton.Clicked += PauseDisc;
+        stopButton.Clicked += StopDisc;
+        nextButton.Clicked += NextTrack;
+        prevButton.Clicked += PrevTrack;
+
+        buttonBox.PackStart(prevButton, true, true, 5);
+        buttonBox.PackStart(pauseButton, true, true, 5);
+        buttonBox.PackStart(stopButton, true, true, 5);
+        buttonBox.PackStart(nextButton, true, true, 5);
+
+        vbox.PackStart(buttonBox, false, false, 10);
+        Add(vbox);
+        DeleteEvent += delegate { Quit(); };
+
+        ShowAll();
+        StartMonitoring();
+    }
+
+    private void StartMonitoring()
+    {
+        monitorThread = new Thread(() =>
+        {
+            string device = "/dev/cdrom";
+            string lastStatus = "";
+
+            while (running)
+            {
+                string currentStatus = RunCommand($"setcd {device} -i").Trim();
+
+                if (currentStatus != lastStatus)
+                {
+                    lastStatus = currentStatus;
+                    Application.Invoke((sender, args) =>
+                    {
+                        statusLabel.Text = $"Drive Status: {currentStatus}";
+                    });
+
+                    if (currentStatus.Contains("audio disc"))
+                    {
+                        if (!discInserted)
+                        {
+                            discInserted = true;
+                            Application.Invoke((sender, args) =>
+                            {
+                                PlayDisc();
+                            });
+                        }
+                    }
+                    else
+                    {
+                        discInserted = false;
+                    }
+                }
+
+                Thread.Sleep(1000);
+            }
+        });
+
+        monitorThread.IsBackground = true;
+        monitorThread.Start();
+    }
+
+    private void PlayDisc()
+    {
+        StopDisc(null, null); // Stop any running instance first
+        mplayerProcess = new Process();
+        mplayerProcess.StartInfo.FileName = "mplayer";
+        mplayerProcess.StartInfo.Arguments = "-slave -quiet cdda://";
+        mplayerProcess.StartInfo.UseShellExecute = false;
+        mplayerProcess.StartInfo.RedirectStandardInput = true;
+        mplayerProcess.StartInfo.RedirectStandardOutput = true;
+        mplayerProcess.OutputDataReceived += (sender, e) => ParseMPlayerOutput(e.Data);
+        mplayerProcess.Start();
+        mplayerProcess.BeginOutputReadLine();
+
+        statusLabel.Text = "Playing Audio CD...";
+        StartTrackInfoThread();
+    }
+
+    private void PauseDisc(object sender, EventArgs e)
+    {
+        if (mplayerProcess != null && !mplayerProcess.HasExited)
+        {
+            mplayerProcess.StandardInput.WriteLine("pause");
+        }
+    }
+
+    private void StopDisc(object sender, EventArgs e)
+    {
+        if (mplayerProcess != null && !mplayerProcess.HasExited)
+        {
+            mplayerProcess.StandardInput.WriteLine("quit");
+            mplayerProcess.WaitForExit();
+            mplayerProcess = null;
+        }
+        statusLabel.Text = "Stopped";
+        trackInfoLabel.Text = "Track: -- | Time: --:--";
+    }
+
+    private void NextTrack(object sender, EventArgs e)
+    {
+        if (mplayerProcess != null && !mplayerProcess.HasExited)
+        {
+            mplayerProcess.StandardInput.WriteLine("pt_step 1");
+        }
+    }
+
+    private void PrevTrack(object sender, EventArgs e)
+    {
+        if (mplayerProcess != null && !mplayerProcess.HasExited)
+        {
+            mplayerProcess.StandardInput.WriteLine("pt_step -1");
+        }
+    }
+
+    private void StartTrackInfoThread()
+    {
+        trackInfoThread = new Thread(() =>
+        {
+            while (running && mplayerProcess != null && !mplayerProcess.HasExited)
+            {
+                mplayerProcess.StandardInput.WriteLine("get_time_pos");
+                mplayerProcess.StandardInput.WriteLine("get_track");
+
+                Thread.Sleep(1000);
+            }
+        });
+
+        trackInfoThread.IsBackground = true;
+        trackInfoThread.Start();
+    }
+
+    private void ParseMPlayerOutput(string data)
+    {
+        if (string.IsNullOrEmpty(data)) return;
+
+        Application.Invoke((sender, args) =>
+        {
+            if (data.StartsWith("ANS_TIME_POSITION="))
+            {
+                string time = data.Replace("ANS_TIME_POSITION=", "").Trim();
+                trackInfoLabel.Text = $"Track: ?? | Time: {FormatTime(time)}";
+            }
+            else if (data.StartsWith("ANS_TRACK="))
+            {
+                string track = data.Replace("ANS_TRACK=", "").Trim();
+                trackInfoLabel.Text = $"Track: {track} | Time: --:--";
+            }
+        });
+    }
+
+    private string FormatTime(string secondsStr)
+    {
+        if (double.TryParse(secondsStr, out double seconds))
+        {
+            int minutes = (int)(seconds / 60);
+            int secs = (int)(seconds % 60);
+            return $"{minutes:D2}:{secs:D2}";
+        }
+        return "--:--";
+    }
+
+    private string RunCommand(string command)
+    {
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = "/bin/bash",
+                Arguments = $"-c \"{command}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (Process process = new Process { StartInfo = psi })
+            {
+                process.Start();
+                string result = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return result;
+            }
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
+    }
+
+    private void Quit()
+    {
+        running = false;
+        monitorThread?.Join();
+        trackInfoThread?.Join();
+        StopDisc(null, null);
+        Application.Quit();
+    }
+
+    public static void Main()
+    {
+        Application.Init();
+        new MediaPlayerApp();
+        Application.Run();
+    }
+}
+
