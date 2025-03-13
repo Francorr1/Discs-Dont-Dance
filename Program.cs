@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using Gtk;
 using LibVLCSharp.Shared;
+using GLib;
 
 class CDPlayer : Window
 {
@@ -11,16 +12,17 @@ class CDPlayer : Window
     private int currentTrack = 1;
     private int totalTracks = 1;
     private Label trackInfoLabel;
+    private Label timeInfoLabel;
     private Button playPauseButton;
-    private Thread cdMonitorThread;
+    private System.Threading.Thread cdMonitorThread;
     private bool isRunning = true;
     private bool isPlaying = false;
     private string lastStatus = "";
     private const string device = "/dev/cdrom";
 
-    public CDPlayer() : base("CD Player with VLC")
+    public CDPlayer() : base("D3: Discs Don't Dance")
     {
-        SetDefaultSize(300, 200);
+        SetDefaultSize(800, 600);
         DeleteEvent += (o, args) =>
         {
             isRunning = false;
@@ -31,7 +33,9 @@ class CDPlayer : Window
 
         VBox vbox = new VBox(false, 5);
         trackInfoLabel = new Label("No Disc Detected");
+        timeInfoLabel = new Label("00:00 / 00:00");
         vbox.PackStart(trackInfoLabel, false, false, 5);
+        vbox.PackStart(timeInfoLabel, false, false, 5);
 
         playPauseButton = new Button("Play");
         playPauseButton.Clicked += (sender, e) => TogglePlayPause();
@@ -51,11 +55,13 @@ class CDPlayer : Window
         Core.Initialize();
         _libVLC = new LibVLC("--aout=alsa");
         _mediaPlayer = new MediaPlayer(_libVLC);
-        _mediaPlayer.EndReached += (sender, e) => Application.Invoke((_, __) => ChangeTrack(1)); // Auto-next track
+        _mediaPlayer.EndReached += (sender, e) => Gtk.Application.Invoke((_, __) => ChangeTrack(1)); // Auto-next track
         _libVLC.Log += (sender, e) => Console.WriteLine($"VLC Log [{e.Level}]: {e.Message}");
 
-        cdMonitorThread = new Thread(MonitorCD) { IsBackground = true };
+        cdMonitorThread = new System.Threading.Thread(MonitorCD) { IsBackground = true };
         cdMonitorThread.Start();
+
+        GLib.Timeout.Add(1000, UpdateTrackTime);
     }
 
     private void MonitorCD()
@@ -68,25 +74,26 @@ class CDPlayer : Window
                 if (currentStatus.Contains("No disc is inserted"))
                 {
                     StopPlayback();
-                    Application.Invoke((_, __) => trackInfoLabel.Text = "Insert a disc.");
+                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Insert a disc.");
                 }
                 else if (currentStatus.Contains("audio disc"))
                 {
-                    Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
+                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
                     totalTracks = GetTotalTracks();
-                    Application.Invoke((_, __) => PlayTrack(1));
+                    Gtk.Application.Invoke((_, __) => PlayTrack(1));
                 }
                 else if (currentStatus.Contains("tray is open"))
                 {
-                    Application.Invoke((_, __) => trackInfoLabel.Text = "The tray is open.");
+                    _mediaPlayer.Stop();
+                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "The tray is open.");
                 }
                 else if (currentStatus.Contains("is not ready"))
                 {
-                    Application.Invoke((_, __) => trackInfoLabel.Text = "Reading disc...");
+                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Reading disc...");
                 }
                 lastStatus = currentStatus;
             }
-            Thread.Sleep(2000);
+            System.Threading.Thread.Sleep(2000);
         }
     }
 
@@ -96,7 +103,7 @@ class CDPlayer : Window
         string mediaUri = $"cdda:///dev/cdrom";
         Console.WriteLine($"Playing Track {track}: {mediaUri}");
 
-        Thread.Sleep(2000); // Wait for CD to spin up
+        System.Threading.Thread.Sleep(2000); // Wait for CD to spin up
 
         try
         {
@@ -104,7 +111,7 @@ class CDPlayer : Window
             media.AddOption($":cdda-track={track}");
             media.AddOption(":no-video-title-show");
             _mediaPlayer.Media = media;
-            Thread.Sleep(500);
+            System.Threading.Thread.Sleep(500);
             _mediaPlayer.Play();
             isPlaying = true;
             playPauseButton.Label = "Pause";
@@ -173,6 +180,17 @@ class CDPlayer : Window
         return maxTrack > 0 ? maxTrack : 1;
     }
 
+    private bool UpdateTrackTime()
+    {
+        if (_mediaPlayer.IsPlaying)
+        {
+            int currentTime = (int)(_mediaPlayer.Time / 1000L);
+            int totalTime = (int)(_mediaPlayer.Length / 1000L);
+            timeInfoLabel.Text = $"{currentTime / 60:D2}:{currentTime % 60:D2} / {totalTime / 60:D2}:{totalTime % 60:D2}";
+        }
+        return true;
+    }
+
     private string RunCommand(string command)
     {
         try
@@ -186,7 +204,7 @@ class CDPlayer : Window
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            using Process process = new Process { StartInfo = psi };
+            using System.Diagnostics.Process process = new System.Diagnostics.Process { StartInfo = psi };
             process.Start();
             string output = process.StandardOutput.ReadToEnd();
             string errorOutput = process.StandardError.ReadToEnd();
@@ -201,8 +219,8 @@ class CDPlayer : Window
 
     public static void Main()
     {
-        Application.Init();
+        Gtk.Application.Init();
         new CDPlayer();
-        Application.Run();
+        Gtk.Application.Run();
     }
 }

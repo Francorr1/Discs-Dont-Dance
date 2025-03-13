@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "Si6O2nWkmoED7ibdldGh2U1SpsCperfnWy0B1dJbzSt3IcdODsQrrMOyY6F2t9mchJRGJb/nTZmg3TPqK9lbBQ==",
+  "dgSpecHash": "OUu9i4T6zHi0KVfbXMMuknXy6gp2SMHDC71C0tg7f2ucSpBRW2Yv15i7NRzevr41TSRwywpBGdHlKrPnauaPxw==",
   "success": true,
-  "projectFilePath": "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj",
+  "projectFilePath": "/media/franco/Media/RandomProjects/Discs-Dont-Dance/ProjectPlayerLinux.csproj",
   "expectedPackageFiles": [
     "/home/franco/.nuget/packages/atksharp/3.22.25.74/atksharp.3.22.25.74.nupkg.sha512",
     "/home/franco/.nuget/packages/cairosharp/3.22.25.74/cairosharp.3.22.25.74.nupkg.sha512",

@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj": {}
+    "/media/franco/Media/RandomProjects/Discs-Dont-Dance/ProjectPlayerLinux.csproj": {}
   },
   "projects": {
-    "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj": {
+    "/media/franco/Media/RandomProjects/Discs-Dont-Dance/ProjectPlayerLinux.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj",
+        "projectUniqueName": "/media/franco/Media/RandomProjects/Discs-Dont-Dance/ProjectPlayerLinux.csproj",
         "projectName": "ProjectPlayerLinux",
-        "projectPath": "/media/franco/Media/RandomProjects/ProjectPlayerLinux/ProjectPlayerLinux.csproj",
+        "projectPath": "/media/franco/Media/RandomProjects/Discs-Dont-Dance/ProjectPlayerLinux.csproj",
         "packagesPath": "/home/franco/.nuget/packages/",
-        "outputPath": "/media/franco/Media/RandomProjects/ProjectPlayerLinux/obj/",
+        "outputPath": "/media/franco/Media/RandomProjects/Discs-Dont-Dance/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/franco/.nuget/NuGet/NuGet.Config"
