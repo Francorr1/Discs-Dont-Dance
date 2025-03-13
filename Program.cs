@@ -11,14 +11,16 @@ class CDPlayer : Window
     private int currentTrack = 1;
     private int totalTracks = 1;
     private Label trackInfoLabel;
+    private Button playPauseButton;
     private Thread cdMonitorThread;
     private bool isRunning = true;
+    private bool isPlaying = false;
     private string lastStatus = "";
     private const string device = "/dev/cdrom";
 
     public CDPlayer() : base("CD Player with VLC")
     {
-        SetDefaultSize(300, 150);
+        SetDefaultSize(300, 200);
         DeleteEvent += (o, args) =>
         {
             isRunning = false;
@@ -30,6 +32,10 @@ class CDPlayer : Window
         VBox vbox = new VBox(false, 5);
         trackInfoLabel = new Label("No Disc Detected");
         vbox.PackStart(trackInfoLabel, false, false, 5);
+
+        playPauseButton = new Button("Play");
+        playPauseButton.Clicked += (sender, e) => TogglePlayPause();
+        vbox.PackStart(playPauseButton, false, false, 5);
 
         Button prevButton = new Button("Previous Track");
         prevButton.Clicked += (sender, e) => ChangeTrack(-1);
@@ -62,12 +68,21 @@ class CDPlayer : Window
                 if (currentStatus.Contains("No disc is inserted"))
                 {
                     StopPlayback();
-                    Application.Invoke((_, __) => trackInfoLabel.Text = "No Disc Detected");
+                    Application.Invoke((_, __) => trackInfoLabel.Text = "Insert a disc.");
                 }
                 else if (currentStatus.Contains("audio disc"))
                 {
+                    Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
                     totalTracks = GetTotalTracks();
                     Application.Invoke((_, __) => PlayTrack(1));
+                }
+                else if (currentStatus.Contains("tray is open"))
+                {
+                    Application.Invoke((_, __) => trackInfoLabel.Text = "The tray is open.");
+                }
+                else if (currentStatus.Contains("is not ready"))
+                {
+                    Application.Invoke((_, __) => trackInfoLabel.Text = "Reading disc...");
                 }
                 lastStatus = currentStatus;
             }
@@ -91,6 +106,8 @@ class CDPlayer : Window
             _mediaPlayer.Media = media;
             Thread.Sleep(500);
             _mediaPlayer.Play();
+            isPlaying = true;
+            playPauseButton.Label = "Pause";
             currentTrack = track;
             trackInfoLabel.Text = $"Track: {track}/{totalTracks}";
         }
@@ -106,6 +123,24 @@ class CDPlayer : Window
         if (_mediaPlayer.IsPlaying)
         {
             _mediaPlayer.Stop();
+            isPlaying = false;
+            playPauseButton.Label = "Play";
+        }
+    }
+
+    private void TogglePlayPause()
+    {
+        if (_mediaPlayer.IsPlaying)
+        {
+            _mediaPlayer.Pause();
+            isPlaying = false;
+            playPauseButton.Label = "Play";
+        }
+        else
+        {
+            _mediaPlayer.Play();
+            isPlaying = true;
+            playPauseButton.Label = "Pause";
         }
     }
 
