@@ -1,0 +1,64 @@
+/* style.css */
+/* Apply to the entire window */
+window {
+    background-color: #131313; /* Dark background */
+    color: #ffffff; /* White text */
+    font-family: "Ubuntu", sans-serif; /* Ubuntu font */
+}
+
+/* Album cover */
+image {
+    border: 5px;
+    border-radius: 30px; /* Rounded corners */
+    margin-bottom: 20px; /* Space below the album cover */
+}
+
+/* Track title */
+label.track-title {
+    font-size: 100px; /* Big font size */
+    font-weight: bold; /* Bold text */
+    color: #ffffff; /* White text */
+    margin-bottom: 10px; /* Space below the track title */
+}
+
+/* Artist and album name */
+label.album-info {
+    font-size: 18px; /* Smaller font size */
+    font-weight: 600; /* Medium font weight */
+    color: #b3b3b3; /* Light gray text */
+    margin-bottom: 10px; /* Space below the artist/album name */
+}
+
+/* Progress bar */
+progressbar.progress-bar {
+    background-color: #333; /* Dark background for the progress bar */
+    border-radius: 5px; /* Rounded corners */
+    min-height: 10px; /* Set a minimum height */
+}
+
+progressbar.progress-bar progress {
+    background-color: #1db954; /* Spotify green for progress */
+    border-radius: 5px; /* Rounded corners */
+}
+
+/* Track time info */
+label.time-info {
+    font-size: 16px; /* Medium font size */
+    color: #b3b3b3; /* Light gray text */
+    margin-top: 5px; /* Space above the time info */
+}
+
+/* Buttons */
+button {
+    background-color: #444; /* Dark gray background */
+    border: none;
+    border-radius: 5px; /* Rounded corners */
+    padding: 10px 20px; /* Padding inside the buttons */
+    color: #ffffff; /* White text */
+    font-size: 16px; /* Medium font size */
+    margin: 5px; /* Space around the buttons */
+}
+
+button:hover {
+    background-color: #666; /* Light gray background on hover */
+}

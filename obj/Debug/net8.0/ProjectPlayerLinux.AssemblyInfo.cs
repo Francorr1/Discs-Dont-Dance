@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ProjectPlayerLinux")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+104a866a07ea8e8933ced4353e102436a49c77dd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dcdda03acc5a339ec7ab1742ae1c0c4b0ad2c2ee")]
 [assembly: System.Reflection.AssemblyProductAttribute("ProjectPlayerLinux")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ProjectPlayerLinux")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

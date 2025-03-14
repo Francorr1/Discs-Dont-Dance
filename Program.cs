@@ -18,6 +18,8 @@ class CDPlayer : Window
     private Label timeInfoLabel;
     private Gtk.Image albumArtImage;
     private Button playPauseButton;
+    private Button prevButton;
+    private Button nextButton;
     private Label albumInfoLabel;
     private ProgressBar progressBar;
     private System.Threading.Thread cdMonitorThread;
@@ -28,10 +30,17 @@ class CDPlayer : Window
     private string albumTitle = "Unknown Artist";
     private string[] trackTitles;
     private bool isFullscreen = true;
+    private Image defaultAlbumArt = new Image("icons/CD.png");
 
     public CDPlayer() : base("D3: Discs Don't Dance")
     {
         Fullscreen();
+
+        // Load CSS
+        var cssProvider = new Gtk.CssProvider();
+        cssProvider.LoadFromPath("style.css");
+        Gtk.StyleContext.AddProviderForScreen(Gdk.Screen.Default, cssProvider, 800);
+
         DeleteEvent += (o, args) =>
         {
             isRunning = false;
@@ -40,34 +49,71 @@ class CDPlayer : Window
             Gtk.Application.Quit();
         };
 
-        VBox vbox = new VBox(false, 5);
-        albumInfoLabel = new Label("Unknown Album");
-        trackInfoLabel = new Label("No Disc Detected");
-        timeInfoLabel = new Label("00:00 / 00:00");
+        // Create a vertical box to hold all elements
+        VBox vbox = new VBox(false, 10); // 10px spacing between children
+        vbox.Halign = Align.Center; // Center horizontally
+        vbox.Valign = Align.Center; // Center vertically
+
+        // Album cover
+        albumArtImage = defaultAlbumArt; // Default image
+        albumArtImage.SetSizeRequest(400, 400); // Set a fixed size for the album cover
+        vbox.PackStart(albumArtImage, false, false, 0);
+
+        // Track title
+        trackInfoLabel = new Label("No Track Playing");
+        trackInfoLabel.Justify = Justification.Center; // Center-align text
+        trackInfoLabel.ModifyFont(Pango.FontDescription.FromString("Ubuntu Bold 24")); // Set font size and weight
+        trackInfoLabel.Name = "track-title"; // Assign a CSS class
+        vbox.PackStart(trackInfoLabel, false, false, 0);
+
+        // Artist and album name
+        albumInfoLabel = new Label("Unknown Artist - Unknown Album");
+        albumInfoLabel.Justify = Justification.Center; // Center-align text
+        albumInfoLabel.ModifyFont(Pango.FontDescription.FromString("Ubuntu Semi-Bold 18")); // Set font size and weight
+        albumInfoLabel.Name = "album-info"; // Assign a CSS class
+        vbox.PackStart(albumInfoLabel, false, false, 0);
+
+        // Progress bar
         progressBar = new ProgressBar();
+        progressBar.SetSizeRequest(300, 10); // Set a fixed width and height
+        progressBar.Name = "progress-bar"; // Assign a CSS class
+        vbox.PackStart(progressBar, false, false, 0);
 
-        // Add the album art image widget
-        albumArtImage = new Gtk.Image();
-        vbox.PackStart(albumArtImage, false, false, 5);
+        // Track time info
+        timeInfoLabel = new Label("00:00 / 00:00");
+        timeInfoLabel.Justify = Justification.Center; // Center-align text
+        timeInfoLabel.Name = "time-info"; // Assign a CSS class
+        vbox.PackStart(timeInfoLabel, false, false, 0);
 
-        vbox.PackStart(albumInfoLabel, false, false, 5);
-        vbox.PackStart(trackInfoLabel, false, false, 5);
-        vbox.PackStart(timeInfoLabel, false, false, 5);
-        vbox.PackStart(progressBar, false, false, 5);
+        // Create an HBox for the buttons
+        HBox buttonBox = new HBox(false, 10); // 10px spacing between buttons
+        buttonBox.Halign = Align.Center; // Center horizontally
 
-        playPauseButton = new Button("Play");
-        playPauseButton.Clicked += (sender, e) => TogglePlayPause();
-        vbox.PackStart(playPauseButton, false, false, 5);
-
-        Button prevButton = new Button("Previous Track");
+        // Previous Track button
+        prevButton = new Button();
+        prevButton.Image = new Image(Stock.MediaPrevious, IconSize.LargeToolbar); // Previous icon
         prevButton.Clicked += (sender, e) => ChangeTrack(-1);
-        vbox.PackStart(prevButton, false, false, 5);
+        buttonBox.PackStart(prevButton, false, false, 0);
 
-        Button nextButton = new Button("Next Track");
+        // Play/Pause button
+        playPauseButton = new Button();
+        playPauseButton.Image = new Image(Stock.MediaPlay, IconSize.LargeToolbar); // Default to play icon
+        playPauseButton.Clicked += (sender, e) => TogglePlayPause();
+        buttonBox.PackStart(playPauseButton, false, false, 0);
+
+        // Next Track button
+        nextButton = new Button();
+        nextButton.Image = new Image(Stock.MediaNext, IconSize.LargeToolbar); // Next icon
         nextButton.Clicked += (sender, e) => ChangeTrack(1);
-        vbox.PackStart(nextButton, false, false, 5);
+        buttonBox.PackStart(nextButton, false, false, 0);
 
+        // Add the button box to the main VBox
+        vbox.PackEnd(buttonBox, false, false, 10); // Add 10px margin at the bottom
+
+        // Add the VBox to the window
         Add(vbox);
+
+        // Show all widgets
         ShowAll();
 
         Core.Initialize();
@@ -94,15 +140,23 @@ class CDPlayer : Window
                     StopPlayback();
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Insert a disc.");
                     albumInfoLabel.Text = "";
-                    albumArtImage.Pixbuf = null;
+                    albumArtImage.Pixbuf = defaultAlbumArt.Pixbuf;
                     albumTitle = "";
                     trackTitles = null;
                     progressBar.Fraction = 0;
+                    progressBar.Hide();
+                    playPauseButton.Hide();
+                    prevButton.Hide();
+                    nextButton.Hide();
                     timeInfoLabel.Text = "";
                 }
                 else if (currentStatus.Contains("audio disc"))
                 {
-                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
+                    // Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
+                    progressBar.Show();
+                    playPauseButton.Show();
+                    prevButton.Show();
+                    nextButton.Show();
                     totalTracks = GetTotalTracks();
                     FetchMusicBrainzMetadata();
                     Gtk.Application.Invoke((_, __) => PlayTrack(1));
@@ -112,15 +166,23 @@ class CDPlayer : Window
                     _mediaPlayer.Stop();
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "The tray is open.");
                     albumInfoLabel.Text = "";
-                    albumArtImage.Pixbuf = null;
+                    albumArtImage.Pixbuf = defaultAlbumArt.Pixbuf;
                     albumTitle = "";
                     trackTitles = null;
                     progressBar.Fraction = 0;
+                    progressBar.Hide();
+                    playPauseButton.Hide();
+                    prevButton.Hide();
+                    nextButton.Hide();
                     timeInfoLabel.Text = "";
                 }
                 else if (currentStatus.Contains("is not ready"))
                 {
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Reading disc...");
+                }
+                else
+                {
+                    Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Invalid disc. Insert an Audio CD.");
                 }
                 lastStatus = currentStatus;
             }
@@ -267,10 +329,10 @@ class CDPlayer : Window
             Console.WriteLine($"Key not found in JSON: {ex.Message}");
             albumInfoLabel.Text = "Metadata format error.";
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
-          Console.WriteLine($"An unexpected error occurred in ParseReleaseJson: {ex.Message}");
-          albumInfoLabel.Text = "An error occured.";
+            Console.WriteLine($"An unexpected error occurred in ParseReleaseJson: {ex.Message}");
+            albumInfoLabel.Text = "An error occurred.";
         }
     }
 
@@ -364,19 +426,21 @@ class CDPlayer : Window
             isPlaying = true;
             playPauseButton.Label = "Pause";
             currentTrack = track;
+
+            // Update the track info label with the track title
             if (trackTitles != null && track <= trackTitles.Length)
             {
-                trackInfoLabel.Text = $"Track: {track}/{totalTracks} - {trackTitles[track - 1]}";
+                trackInfoLabel.Text = $"{trackTitles[track - 1]}";
             }
             else
             {
-                trackInfoLabel.Text = $"Track: {track}/{totalTracks}";
+                trackInfoLabel.Text = $"Track {track}/{totalTracks}";
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error playing track {track}: {ex.Message}");
-            trackInfoLabel.Text = "Error playing track.";
+            // trackInfoLabel.Text = "Error playing track.";
         }
     }
 
@@ -395,7 +459,7 @@ class CDPlayer : Window
         {
             _mediaPlayer.Stop();
             isPlaying = false;
-            playPauseButton.Label = "Play";
+            playPauseButton.Image = new Image(Stock.MediaPlay, IconSize.LargeToolbar); // Change to play icon
         }
     }
 
@@ -405,13 +469,13 @@ class CDPlayer : Window
         {
             _mediaPlayer.Pause();
             isPlaying = false;
-            playPauseButton.Label = "Play";
+            playPauseButton.Image = new Image(Stock.MediaPlay, IconSize.LargeToolbar); // Change to play icon
         }
         else
         {
             _mediaPlayer.Play();
             isPlaying = true;
-            playPauseButton.Label = "Pause";
+            playPauseButton.Image = new Image(Stock.MediaPause, IconSize.LargeToolbar); // Change to pause icon
         }
     }
 
@@ -441,6 +505,7 @@ class CDPlayer : Window
                 }
             }
         }
+        Console.WriteLine($"Total Tracks: {maxTrack}");
         return maxTrack > 0 ? maxTrack : 1;
     }
 
