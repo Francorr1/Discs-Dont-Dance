@@ -1,5 +1,8 @@
 using System;
 using System.Diagnostics;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Threading;
 using Gtk;
 using LibVLCSharp.Shared;
@@ -13,16 +16,22 @@ class CDPlayer : Window
     private int totalTracks = 1;
     private Label trackInfoLabel;
     private Label timeInfoLabel;
+    private Gtk.Image albumArtImage;
     private Button playPauseButton;
+    private Label albumInfoLabel;
+    private ProgressBar progressBar;
     private System.Threading.Thread cdMonitorThread;
     private bool isRunning = true;
     private bool isPlaying = false;
     private string lastStatus = "";
     private const string device = "/dev/cdrom";
+    private string albumTitle = "Unknown Artist";
+    private string[] trackTitles;
+    private bool isFullscreen = true;
 
     public CDPlayer() : base("D3: Discs Don't Dance")
     {
-        SetDefaultSize(800, 600);
+        Fullscreen();
         DeleteEvent += (o, args) =>
         {
             isRunning = false;
@@ -32,10 +41,19 @@ class CDPlayer : Window
         };
 
         VBox vbox = new VBox(false, 5);
+        albumInfoLabel = new Label("Unknown Album");
         trackInfoLabel = new Label("No Disc Detected");
         timeInfoLabel = new Label("00:00 / 00:00");
+        progressBar = new ProgressBar();
+
+        // Add the album art image widget
+        albumArtImage = new Gtk.Image();
+        vbox.PackStart(albumArtImage, false, false, 5);
+
+        vbox.PackStart(albumInfoLabel, false, false, 5);
         vbox.PackStart(trackInfoLabel, false, false, 5);
         vbox.PackStart(timeInfoLabel, false, false, 5);
+        vbox.PackStart(progressBar, false, false, 5);
 
         playPauseButton = new Button("Play");
         playPauseButton.Clicked += (sender, e) => TogglePlayPause();
@@ -75,17 +93,30 @@ class CDPlayer : Window
                 {
                     StopPlayback();
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Insert a disc.");
+                    albumInfoLabel.Text = "";
+                    albumArtImage.Pixbuf = null;
+                    albumTitle = "";
+                    trackTitles = null;
+                    progressBar.Fraction = 0;
+                    timeInfoLabel.Text = "";
                 }
                 else if (currentStatus.Contains("audio disc"))
                 {
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "Audio CD.");
                     totalTracks = GetTotalTracks();
+                    FetchMusicBrainzMetadata();
                     Gtk.Application.Invoke((_, __) => PlayTrack(1));
                 }
                 else if (currentStatus.Contains("tray is open"))
                 {
                     _mediaPlayer.Stop();
                     Gtk.Application.Invoke((_, __) => trackInfoLabel.Text = "The tray is open.");
+                    albumInfoLabel.Text = "";
+                    albumArtImage.Pixbuf = null;
+                    albumTitle = "";
+                    trackTitles = null;
+                    progressBar.Fraction = 0;
+                    timeInfoLabel.Text = "";
                 }
                 else if (currentStatus.Contains("is not ready"))
                 {
@@ -97,6 +128,223 @@ class CDPlayer : Window
         }
     }
 
+    private void FetchMusicBrainzMetadata()
+    {
+        string discID = GetMusicBrainzDiscID();
+        if (string.IsNullOrEmpty(discID))
+        {
+            albumInfoLabel.Text = "Could not Retrieve Album Info";
+            return;
+        }
+
+        string apiUrl = $"https://musicbrainz.org/ws/2/discid/{discID}?fmt=json";
+        using (HttpClient client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "D3-Discs-Dont-Dance/1.0 (Linux; contact: your-email@example.com)"); // Replace
+
+            try
+            {
+                HttpResponseMessage response = client.GetAsync(apiUrl).Result;
+                response.EnsureSuccessStatusCode();
+                string json = response.Content.ReadAsStringAsync().Result;
+                ParseMusicBrainzResponse(json, client); // Pass client for second request.
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"HTTP request error: {ex.Message}");
+                albumInfoLabel.Text = "No metadata found. (HTTP error)";
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"JSON parsing error: {ex.Message}");
+                albumInfoLabel.Text = "Error parsing metadata.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+                albumInfoLabel.Text = "An error occurred.";
+            }
+        }
+    }
+
+    private void ParseMusicBrainzResponse(string json, HttpClient client)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("releases", out JsonElement releases) || releases.GetArrayLength() == 0)
+            {
+                albumInfoLabel.Text = "No album metadata found.";
+                return;
+            }
+
+            JsonElement release = releases[0];
+            string releaseId = release.GetProperty("id").GetString();
+
+            // Fetch release details
+            string releaseUrl = $"https://musicbrainz.org/ws/2/release/{releaseId}?fmt=json&inc=artists+recordings+recordings";
+            HttpResponseMessage releaseResponse = client.GetAsync(releaseUrl).Result;
+            releaseResponse.EnsureSuccessStatusCode();
+            string releaseJson = releaseResponse.Content.ReadAsStringAsync().Result;
+            ParseReleaseJson(releaseJson);
+
+            // Fetch cover art
+            FetchCoverArt(releaseId, client);
+
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"JSON parsing error: {ex.Message}");
+            albumInfoLabel.Text = "Error parsing metadata.";
+        }
+        catch (KeyNotFoundException ex)
+        {
+            Console.WriteLine($"Key not found in JSON: {ex.Message}");
+            albumInfoLabel.Text = "Metadata format error.";
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"HTTP request error: {ex.Message}");
+            albumInfoLabel.Text = "No metadata found. (HTTP error)";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            albumInfoLabel.Text = "An error occurred.";
+        }
+    }
+
+    private void ParseReleaseJson(string json)
+    {
+        try
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("title", out JsonElement titleElement))
+            {
+                albumInfoLabel.Text = "Album title not found.";
+                return;
+            }
+
+            albumTitle = titleElement.GetString();
+            albumInfoLabel.Text = albumTitle;
+
+            string artistName = "Unknown Artist";
+
+            if (doc.RootElement.TryGetProperty("artist-credit", out JsonElement artistCredit) && artistCredit.GetArrayLength() > 0 && artistCredit[0].TryGetProperty("artist", out JsonElement artist) && artist.TryGetProperty("name", out JsonElement artistNameElement))
+            {
+                artistName = artistNameElement.GetString();
+            }
+
+            if (doc.RootElement.TryGetProperty("media", out JsonElement media) && media.GetArrayLength() > 0 && media[0].TryGetProperty("tracks", out JsonElement tracklist))
+            {
+                trackTitles = new string[tracklist.GetArrayLength()];
+                for (int i = 0; i < trackTitles.Length; i++)
+                {
+                    if (tracklist[i].TryGetProperty("title", out JsonElement trackTitle))
+                    {
+                        trackTitles[i] = trackTitle.GetString();
+                    }
+                    else
+                    {
+                        trackTitles[i] = "Unknown Track";
+                    }
+                }
+            }
+            else
+            {
+                trackTitles = null;
+            }
+            albumInfoLabel.Text = $"{artistName} - {albumTitle}";
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"JSON parsing error: {ex.Message}");
+            albumInfoLabel.Text = "Error parsing metadata.";
+        }
+        catch (KeyNotFoundException ex)
+        {
+            Console.WriteLine($"Key not found in JSON: {ex.Message}");
+            albumInfoLabel.Text = "Metadata format error.";
+        }
+        catch(Exception ex)
+        {
+          Console.WriteLine($"An unexpected error occurred in ParseReleaseJson: {ex.Message}");
+          albumInfoLabel.Text = "An error occured.";
+        }
+    }
+
+    private void FetchCoverArt(string releaseId, HttpClient client)
+    {
+        string coverArtUrl = $"https://coverartarchive.org/release/{releaseId}";
+
+        try
+        {
+            HttpResponseMessage response = client.GetAsync(coverArtUrl).Result;
+            response.EnsureSuccessStatusCode();
+            string json = response.Content.ReadAsStringAsync().Result;
+
+            using JsonDocument doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("images", out JsonElement images) && images.GetArrayLength() > 0)
+            {
+                string imageUrl = images[0].GetProperty("image").GetString();
+                DownloadAndDisplayCoverArt(imageUrl);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"HTTP request error: {ex.Message}");
+            // Handle error or set a default image
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"JSON parsing error: {ex.Message}");
+            // Handle error or set a default image
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            // Handle error or set a default image
+        }
+    }
+
+    private void DownloadAndDisplayCoverArt(string imageUrl)
+    {
+        try
+        {
+            using HttpClient client = new HttpClient();
+            byte[] imageData = client.GetByteArrayAsync(imageUrl).Result;
+
+            Gtk.Application.Invoke((_, __) =>
+            {
+                using var stream = new System.IO.MemoryStream(imageData);
+                var pixbuf = new Gdk.Pixbuf(stream);
+                var image = new Gtk.Image(pixbuf);
+                // Assuming you have a Gtk.Image widget named 'albumArtImage' in your UI
+                albumArtImage.Pixbuf = pixbuf;
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error downloading cover art: {ex.Message}");
+            // Handle error or set a default image
+        }
+    }
+
+    private string GetMusicBrainzDiscID()
+    {
+        IntPtr disc = discid_new();
+        if (discid_read(disc, device))
+        {
+            IntPtr idPtr = discid_get_id(disc);
+            string discID = Marshal.PtrToStringAnsi(idPtr);
+            discid_free(disc);
+            Console.WriteLine($"Disc ID: {discID}");
+            return discID;
+        }
+        discid_free(disc);
+        return null;
+    }
     private void PlayTrack(int track)
     {
         StopPlayback();
@@ -116,7 +364,14 @@ class CDPlayer : Window
             isPlaying = true;
             playPauseButton.Label = "Pause";
             currentTrack = track;
-            trackInfoLabel.Text = $"Track: {track}/{totalTracks}";
+            if (trackTitles != null && track <= trackTitles.Length)
+            {
+                trackInfoLabel.Text = $"Track: {track}/{totalTracks} - {trackTitles[track - 1]}";
+            }
+            else
+            {
+                trackInfoLabel.Text = $"Track: {track}/{totalTracks}";
+            }
         }
         catch (Exception ex)
         {
@@ -124,6 +379,15 @@ class CDPlayer : Window
             trackInfoLabel.Text = "Error playing track.";
         }
     }
+
+    [DllImport("libdiscid.so.0")]
+    private static extern IntPtr discid_new();
+    [DllImport("libdiscid.so.0")]
+    private static extern void discid_free(IntPtr disc);
+    [DllImport("libdiscid.so.0")]
+    private static extern bool discid_read(IntPtr disc, string device);
+    [DllImport("libdiscid.so.0")]
+    private static extern IntPtr discid_get_id(IntPtr disc);
 
     private void StopPlayback()
     {
@@ -184,12 +448,28 @@ class CDPlayer : Window
     {
         if (_mediaPlayer.IsPlaying)
         {
-            int currentTime = (int)(_mediaPlayer.Time / 1000L);
-            int totalTime = (int)(_mediaPlayer.Length / 1000L);
-            timeInfoLabel.Text = $"{currentTime / 60:D2}:{currentTime % 60:D2} / {totalTime / 60:D2}:{totalTime % 60:D2}";
+            long currentTime = _mediaPlayer.Time;  // Time in milliseconds
+            long totalTime = _mediaPlayer.Length;  // Total time in milliseconds
+
+            int currentSec = (int)(currentTime / 1000);
+            int totalSec = (int)(totalTime / 1000);
+
+            timeInfoLabel.Text = $"{currentSec / 60:D2}:{currentSec % 60:D2} / {totalSec / 60:D2}:{totalSec % 60:D2}";
+
+            if (totalTime > 0)
+            {
+                double fraction = (double)currentTime / totalTime;
+                progressBar.Fraction = fraction;
+            }
+            else
+            {
+                // If track length is unknown, make the progress bar pulse
+                progressBar.Pulse();
+            }
         }
-        return true;
+        return true; // Keeps the timer running
     }
+
 
     private string RunCommand(string command)
     {
@@ -215,6 +495,25 @@ class CDPlayer : Window
         {
             return $"Error: {ex.Message}";
         }
+    }
+
+    protected override bool OnKeyPressEvent(Gdk.EventKey evnt)
+    {
+        if (evnt.Key == Gdk.Key.Escape)
+        {
+            if (isFullscreen)
+            {
+                Unfullscreen();
+                isFullscreen = false;
+            }
+            else
+            {
+                Fullscreen();
+                isFullscreen = true;
+            }
+            return true;
+        }
+        return base.OnKeyPressEvent(evnt);
     }
 
     public static void Main()
